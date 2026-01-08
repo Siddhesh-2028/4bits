@@ -1,0 +1,8 @@
+node_modules
+whatsapp_cache
+.wwebjs_cache
+.cache
+venv
+.env
+.gitignore
+Dockerfile

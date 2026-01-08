@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    restart: always
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:80"
+    restart: always
+    depends_on:
+      - backend
+
+  whatsapp:
+    build: ./whatsapp
+    ports:
+      - "3001:3001"
+      - "5000:5000"
+    env_file:
+      - ./whatsapp/.env
+    volumes:
+      - ./whatsapp/whatsapp_cache:/app/whatsapp_cache
+    restart: always

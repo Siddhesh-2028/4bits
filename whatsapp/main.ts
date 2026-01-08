@@ -6,7 +6,9 @@ import { MessageEvent } from "./message_event";
 import express from "express";
 
 const phoneNumber = process.env.PHONE_NUMBER_SERIALIZED;
-if (phoneNumber?.length != 10) process.exit(1);
+if (!phoneNumber || phoneNumber.length !== 10) {
+    console.warn("⚠️ WARNING: PHONE_NUMBER_SERIALIZED is not set to a 10-digit number. Personal messages will not be sent on startup.");
+}
 
 export const wwclient: Client = new Client({
     authStrategy: new LocalAuth({
@@ -33,13 +35,14 @@ wwclient.on("auth_failure", () => {
 wwclient.on("ready", async () => {
     console.log("WhatsApp Client is ready!");
     const phoneNumber = process.env.PHONE_NUMBER_SERIALIZED;
-    if (phoneNumber) {
+    if (phoneNumber && phoneNumber.length === 10) {
         try {
             await wwclient.sendMessage("91" + phoneNumber + "@c.us", "WhatsApp API Bridge Started");
         } catch (e) {
             console.error("Failed to send startup message:", e);
-            process.exit(1);
         }
+    } else {
+        console.log("WhatsApp Client ready, but no valid phone number configured for startup message.");
     }
 });
 
