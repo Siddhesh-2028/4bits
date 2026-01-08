@@ -11,6 +11,7 @@ from fastapi import UploadFile
 from PIL import Image
 import io
 from dotenv import load_dotenv
+from pypdf import PdfReader
 
 load_dotenv()
 
@@ -122,7 +123,7 @@ async def extract_prescription_data(file: UploadFile) -> Dict[str, Any]:
             image = Image.open(io.BytesIO(content))
 
             # Use Gemini Pro Vision
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-3-flash-preview")
 
             # Generate content with image
             response = model.generate_content([EXTRACTION_PROMPT, image])
@@ -145,10 +146,57 @@ async def extract_prescription_data(file: UploadFile) -> Dict[str, Any]:
 
             return extracted_data
 
-        else:
-            # For PDFs, would need different handling (future enhancement)
-            raise ValueError("PDF extraction not yet implemented")
+        elif file.filename.lower().endswith(".pdf"):
+            # For PDFs, extract text and send to Gemini
+            try:
+                # Read PDF content
+                pdf_reader = PdfReader(io.BytesIO(content))
 
+                # Extract text from all pages
+                pdf_text = ""
+                for page in pdf_reader.pages:
+                    pdf_text += page.extract_text() + "\n"
+
+                if not pdf_text.strip():
+                    raise ValueError(
+                        "PDF appears to be empty or contains only images. Please use an image format instead."
+                    )
+
+                # Use Gemini to extract structured data from text
+                model = genai.GenerativeModel("gemini-3-flash-preview")
+
+                # Modified prompt for text-based extraction
+                text_prompt = EXTRACTION_PROMPT + f"\n\nPrescription Text:\n{pdf_text}"
+
+                response = model.generate_content(text_prompt)
+
+                # Parse JSON response
+                import json
+
+                response_text = response.text.strip()
+
+                # Remove markdown code blocks if present
+                if response_text.startswith("```json"):
+                    response_text = response_text[7:]
+                if response_text.startswith("```"):
+                    response_text = response_text[3:]
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]
+
+                extracted_data = json.loads(response_text.strip())
+
+                return extracted_data
+
+            except Exception as pdf_error:
+                print(f"PDF extraction error: {pdf_error}")
+                raise ValueError(f"Failed to extract text from PDF: {str(pdf_error)}")
+
+        else:
+            raise ValueError(f"Unsupported file format: {file.filename}")
+
+    except ValueError as ve:
+        # Re-raise ValueError as-is (these are user-facing validation errors)
+        raise Exception(f"Failed to extract data from prescription: {str(ve)}")
     except Exception as e:
         print(f"Gemini extraction error: {e}")
         raise Exception(f"Failed to extract data from prescription: {str(e)}")
