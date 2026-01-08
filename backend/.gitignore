@@ -13,10 +13,7 @@ venv/
 env/
 ENV/
 
-# Data files
-data/
-*.pdf
-*.txt
+
 
 # IDE
 .vscode/

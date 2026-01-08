@@ -1,6 +1,8 @@
 import axios from "axios";
-import { Activity, HeartPulse, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { Activity, HeartPulse, LogOut, ShieldCheck, FileUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import Auth from "./components/Auth";
+import PrescriptionUpload from "./components/PrescriptionUpload";
 import ToolLog, { ToolLogEntry } from "./components/ToolLog";
 import Transcript from "./components/Transcript";
 import VoiceControlPanel from "./components/VoiceControlPanel";
@@ -11,20 +13,61 @@ interface ChatMessage {
 	timestamp: string;
 }
 
+interface UserData {
+	user_id: string;
+	username: string;
+	name: string;
+}
+
 function App() {
+	const [isAuthenticated, setIsAuthenticated] = useState(false);
+	const [userData, setUserData] = useState<UserData | null>(null);
+	const [authToken, setAuthToken] = useState<string | null>(null);
+	const [activeTab, setActiveTab] = useState<'voice' | 'prescription'>('voice');
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [logs, setLogs] = useState<ToolLogEntry[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
 
+	// Check for existing auth token on mount
+	useEffect(() => {
+		const token = localStorage.getItem("vita_token");
+		const userId = localStorage.getItem("vita_user_id");
+		const username = localStorage.getItem("vita_username");
+		const name = localStorage.getItem("vita_name");
+
+		if (token && userId && username && name) {
+			setAuthToken(token);
+			setUserData({ user_id: userId, username, name });
+			setIsAuthenticated(true);
+		}
+	}, []);
+
+	const handleAuthSuccess = (token: string, user: UserData) => {
+		setAuthToken(token);
+		setUserData(user);
+		setIsAuthenticated(true);
+	};
+
+	const handleLogout = () => {
+		localStorage.removeItem("vita_token");
+		localStorage.removeItem("vita_user_id");
+		localStorage.removeItem("vita_username");
+		localStorage.removeItem("vita_name");
+		setAuthToken(null);
+		setUserData(null);
+		setIsAuthenticated(false);
+		setMessages([]);
+		setLogs([]);
+		setActiveTab('voice');
+	};
+
 	// Simple TTS
 	const speak = (text: string) => {
 		const utterance = new SpeechSynthesisUtterance(text);
-		// utterance.voice = window.speechSynthesis.getVoices().find(v => v.name.includes("Google US English")) || null;
 		window.speechSynthesis.speak(utterance);
 	};
 
 	const handleTranscript = async (text: string) => {
-		// 1. Add User Message
 		const userMsg: ChatMessage = {
 			role: "user",
 			content: text,
@@ -34,15 +77,19 @@ function App() {
 		setIsProcessing(true);
 
 		try {
-			// 2. Call Backend
-			const response = await axios.post("http://localhost:8000/api/chat", {
-				message: text,
-				conversation_history: [], // We could pass full history if needed
-			});
+			const response = await axios.post(
+				"http://localhost:8000/api/chat",
+				{
+					message: text,
+					conversation_history: [],
+				},
+				{
+					headers: { Authorization: `Bearer ${authToken}` }
+				}
+			);
 
 			const data = response.data;
 
-			// 3. Add Agent Message
 			const agentMsg: ChatMessage = {
 				role: "agent",
 				content: data.response,
@@ -50,7 +97,6 @@ function App() {
 			};
 			setMessages((prev) => [...prev, agentMsg]);
 
-			// 4. Update Logs
 			if (data.logs && data.logs.length > 0) {
 				const newLogs = data.logs.map((l: any) => ({
 					...l,
@@ -59,14 +105,12 @@ function App() {
 				setLogs((prevLogs) => [...prevLogs, ...newLogs]);
 			}
 
-			// 5. TTS
 			speak(data.response);
 		} catch (error) {
 			console.error("API Error", error);
 			const errorMsg: ChatMessage = {
 				role: "agent",
-				content:
-					"I'm having trouble connecting to the server. Please ensure the backend is running.",
+				content: "I'm having trouble connecting to the server. Please ensure you are logged in and the backend is running.",
 				timestamp: new Date().toLocaleTimeString(),
 			};
 			setMessages((prev) => [...prev, errorMsg]);
@@ -74,6 +118,10 @@ function App() {
 			setIsProcessing(false);
 		}
 	};
+
+	if (!isAuthenticated) {
+		return <Auth onAuthSuccess={handleAuthSuccess} />;
+	}
 
 	return (
 		<div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
@@ -102,56 +150,99 @@ function App() {
 							<Activity size={14} />
 							v1.0.0-beta
 						</div>
+						<button
+							onClick={handleLogout}
+							className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-100"
+						>
+							<LogOut size={14} />
+							Logout
+						</button>
 					</div>
 				</div>
 			</header>
 
 			{/* Main Content */}
-			<main className="flex-1 max-w-6xl mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-				{/* Left Column: Voice & Transcript (7 cols) */}
-				<div className="lg:col-span-7 space-y-6">
-					<VoiceControlPanel
-						onTranscript={handleTranscript}
-						isProcessing={isProcessing}
-					/>
-					<Transcript messages={messages} />
+			<main className="flex-1 max-w-6xl mx-auto w-full p-6 space-y-6">
+				{/* Tabs */}
+				<div className="flex gap-2 bg-white p-2 rounded-lg shadow-sm border border-slate-200">
+					<button
+						onClick={() => setActiveTab('voice')}
+						className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'voice'
+								? 'bg-blue-600 text-white shadow-md'
+								: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+							}`}
+					>
+						<Activity size={20} />
+						Voice Assistant
+					</button>
+					<button
+						onClick={() => setActiveTab('prescription')}
+						className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'prescription'
+								? 'bg-blue-600 text-white shadow-md'
+								: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+							}`}
+					>
+						<FileUp size={20} />
+						Upload Prescription
+					</button>
 				</div>
 
-				{/* Right Column: System State (5 cols) */}
-				<div className="lg:col-span-5 space-y-6">
-					{/* Dashboard / Patient Context Mock */}
-					<div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-						<h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
-							Patient Context
-						</h3>
-						<div className="space-y-3">
-							<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-								<span className="text-sm text-slate-500">Name</span>
-								<span className="font-medium text-slate-800">
-									Alice Smith (P001)
-								</span>
+				{/* Tab Content */}
+				{activeTab === 'voice' ? (
+					<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+						{/* Left Column: Voice & Transcript (7 cols) */}
+						<div className="lg:col-span-7 space-y-6">
+							<VoiceControlPanel
+								onTranscript={handleTranscript}
+								isProcessing={isProcessing}
+							/>
+							<Transcript messages={messages} />
+						</div>
+
+						{/* Right Column: System State (5 cols) */}
+						<div className="lg:col-span-5 space-y-6">
+							{/* Dashboard / Patient Context */}
+							<div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+								<h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">
+									Patient Context
+								</h3>
+								<div className="space-y-3">
+									<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+										<span className="text-sm text-slate-500">Name</span>
+										<span className="font-medium text-slate-800">
+											{userData?.name}
+										</span>
+									</div>
+									<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+										<span className="text-sm text-slate-500">Username</span>
+										<span className="font-medium text-slate-800">
+											@{userData?.username}
+										</span>
+									</div>
+									<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
+										<span className="text-sm text-slate-500">User ID</span>
+										<span className="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
+											{userData?.user_id.substring(0, 8)}...
+										</span>
+									</div>
+								</div>
 							</div>
-							<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-								<span className="text-sm text-slate-500">DOB</span>
-								<span className="font-medium text-slate-800">1985-04-12</span>
-							</div>
-							<div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-100">
-								<span className="text-sm text-slate-500">Status</span>
-								<span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded">
-									ACTIVE
-								</span>
+
+							<ToolLog logs={logs} />
+
+							<div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs leading-relaxed">
+								<strong>⚠️ Medical Disclaimer:</strong> VITA-Care is for coordination
+								only. It does not provide medical advice or diagnosis. In
+								emergencies, call 911.
 							</div>
 						</div>
 					</div>
-
-					<ToolLog logs={logs} />
-
-					<div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-xs leading-relaxed">
-						<strong>⚠️ Medical Disclaimer:</strong> VITA-Care is for coordination
-						only. It does not provide medical advice or diagnosis. In
-						emergencies, call 911.
+				) : (
+					/* Prescription Upload Tab */
+					<div className="max-w-4xl mx-auto">
+						<PrescriptionUpload authToken={authToken!} />
 					</div>
-				</div>
+				)}
 			</main>
 		</div>
 	);

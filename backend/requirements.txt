@@ -1,5 +1,13 @@
-google-genai
 fastapi
-pydantic
 uvicorn
+pydantic
 python-dotenv
+google-generativeai
+supabase
+python-multipart
+Pillow
+pypdf
+python-jose[cryptography]
+passlib[bcrypt]
+slowapi
+psycopg2-binary
