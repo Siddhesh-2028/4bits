@@ -100,9 +100,19 @@ export const bookAppointment = async (
 		return response.data;
 	} catch (error: any) {
 		console.error('Error booking appointment:', error);
-		throw new Error(
-			error.response?.data?.detail || 'Failed to book appointment'
-		);
+		let errorMessage = 'Failed to book appointment';
+
+		if (error.response?.data?.detail) {
+			const detail = error.response.data.detail;
+			if (Array.isArray(detail)) {
+				// Handle Pydantic validation errors
+				errorMessage = detail.map((err: any) => err.msg || JSON.stringify(err)).join(', ');
+			} else {
+				errorMessage = typeof detail === 'string' ? detail : JSON.stringify(detail);
+			}
+		}
+
+		throw new Error(errorMessage);
 	}
 };
 

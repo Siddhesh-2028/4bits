@@ -1,11 +1,11 @@
 import os
 
 from google import genai
-from google.generativeai import types
+from google.genai import types
 from tools import TOOLS_MAP
 
 # VITA-Care Agent System Prompt
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT_TEMPLATE = """
 You are VITA-Care, a healthcare coordination AI agent.
 Your role is to assist with non-diagnostic healthcare workflows such as appointment booking, follow-ups, and reminders.
 
@@ -16,14 +16,19 @@ You must NEVER:
 If asked for medical advice, politely refuse and offer to schedule a consultation.
 
 You must:
-- Ask clarifying questions when required information is missing
-- Confirm critical actions (booking, cancellation) before calling the tool
-- Handle interruptions and corrections gracefully
-- Use available tools to complete tasks
-- Log every action transparently using `log_interaction` after a significant tool use.
+- PRIORITIZE ACTIONS. If the user wants to book, check availability IMMEDIATELY using `check_appointment_availability`.
+- Do NOT ask clarifying questions like "when?" or "what type?" before checking availability.
+- Confirm critical actions (booking, cancellation) before calling the tool.
+- Handle interruptions and corrections gracefully.
 
-The user context (Patient ID) is usually "P001" (Alice Smith) for this demo unless specified otherwise.
-If you need to book, always check availability first.
+The current User ID is "{user_id}".
+
+IMPORTANT RULES:
+1. ALWAYS pass "{user_id}" as the `patient_id` argument when calling tools.
+2. When the user asks to "book an appointment" or "schedule a visit", IMMEDIATELY call `check_appointment_availability` with "{user_id}" and a query like "next available".
+3. After getting slots, present them to the user and ask which one they want.
+4. If the user selects a slot, call `book_appointment` with the slot details.
+5. Do NOT call `log_interaction` unless explicitly asked to log something.
 """
 
 
@@ -34,7 +39,7 @@ def get_client():
     return genai.Client(api_key=api_key)
 
 
-def process_interaction(user_input: str, conversation_history: list):
+def process_interaction(user_input: str, conversation_history: list, user_id: str):
     """
     Process input using google-genai SDK with automatic server-side function calling.
     """
@@ -43,6 +48,9 @@ def process_interaction(user_input: str, conversation_history: list):
 
         # Prepare tools list (list of callables)
         tool_functions = list(TOOLS_MAP.values())
+
+        # Dynamic System Prompt
+        system_instruction = SYSTEM_PROMPT_TEMPLATE.format(user_id=user_id)
 
         # Configure the chat
         # We start a new chat session for each request in this stateless REST API design,
@@ -53,7 +61,7 @@ def process_interaction(user_input: str, conversation_history: list):
             model="gemini-2.5-flash",
             config=types.GenerateContentConfig(
                 tools=tool_functions,
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=system_instruction,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(
                     disable=False, maximum_remote_calls=5
                 ),
@@ -97,7 +105,28 @@ def process_interaction(user_input: str, conversation_history: list):
         return {"response": final_text, "logs": tool_logs}
 
     except Exception as e:
-        return {
-            "response": f"System Error (Agent): {str(e)}",
-            "logs": [{"error": str(e)}],
-        }
+        error_str = str(e).lower()
+        
+        # Detect specific API errors and return user-friendly messages
+        if "429" in str(e) or "resource_exhausted" in error_str or "quota" in error_str:
+            return {
+                "response": "I'm currently experiencing high demand. Please try again in a minute or two.",
+                "logs": [{"error": "API quota exceeded", "status": "rate_limited"}],
+            }
+        elif "401" in str(e) or "invalid" in error_str and "key" in error_str:
+            return {
+                "response": "There's a configuration issue with the AI service. Please contact support.",
+                "logs": [{"error": "API key issue", "status": "auth_error"}],
+            }
+        elif "timeout" in error_str or "unavailable" in error_str:
+            return {
+                "response": "The AI service is temporarily unavailable. Please try again shortly.",
+                "logs": [{"error": "Service unavailable", "status": "timeout"}],
+            }
+        else:
+            # Generic fallback - still don't expose raw error
+            print(f"Agent error: {e}")  # Log for debugging
+            return {
+                "response": "I encountered an issue processing your request. Please try again.",
+                "logs": [{"error": "Internal error", "status": "failed"}],
+            }

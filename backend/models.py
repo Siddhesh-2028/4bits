@@ -32,8 +32,8 @@ class InteractionLog(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str
-    conversation_history: List[Dict[str, str]] = []  # Role (user/model) -> Content
+    message: str = Field(..., max_length=2000)
+    conversation_history: List[Dict[str, str]] = Field(default=[], max_items=50)  # Role (user/model) -> Content
 
 
 class ChatResponse(BaseModel):
@@ -47,11 +47,20 @@ class ChatResponse(BaseModel):
 class UserRegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6, max_length=72)  # Bcrypt limit
-    name: str = Field(..., min_length=2)
-    phone: str = Field(..., min_length=10, max_length=15)  # NOW REQUIRED
+    name: str = Field(..., min_length=2, max_length=100)
+    phone: str = Field(..., min_length=10, max_length=15)
     email: Optional[str] = None
-    dob: Optional[str] = None  # YYYY-MM-DD format
+    dob: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # YYYY-MM-DD format
     
+    @validator('email')
+    def validate_email(cls, v):
+        if not v:
+            return None
+        import re
+        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", v):
+            raise ValueError('Invalid email format')
+        return v
+
     @validator('username')
     def validate_username(cls, v):
         if not v.isalnum() and '_' not in v:

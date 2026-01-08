@@ -198,8 +198,16 @@ async def extract_prescription_data(file: UploadFile) -> Dict[str, Any]:
         # Re-raise ValueError as-is (these are user-facing validation errors)
         raise Exception(f"Failed to extract data from prescription: {str(ve)}")
     except Exception as e:
+        error_str = str(e).lower()
         print(f"Gemini extraction error: {e}")
-        raise Exception(f"Failed to extract data from prescription: {str(e)}")
+        
+        # Detect quota/rate limit errors
+        if "429" in str(e) or "quota" in error_str or "resource_exhausted" in error_str:
+            raise Exception("The AI service is temporarily busy. Please try again in a minute.")
+        elif "timeout" in error_str or "unavailable" in error_str:
+            raise Exception("The AI service is temporarily unavailable. Please try again shortly.")
+        else:
+            raise Exception("Failed to extract data from prescription. Please ensure the image is clear and try again.")
 
 
 def normalize_drug_name(name: str) -> str:

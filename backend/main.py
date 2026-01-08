@@ -104,9 +104,9 @@ async def register(request: UserRegisterRequest):
             "username": request.username,
             "name": request.name,
             "password_hash": password_hash,
-            "email": request.email,
+            "email": request.email if request.email else None,  # Handle empty string
             "phone": request.phone,
-            "dob": request.dob,
+            "dob": request.dob or None,
         }
 
         response = supabase.table("patients").insert(new_user).execute()
@@ -131,8 +131,9 @@ async def register(request: UserRegisterRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Registration error: {e}")
-        raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
+        print(f"Registration error: {e}")  # Log internal error
+        # Sanitized user-facing error
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 
 @app.post("/api/login", response_model=AuthResponse)
@@ -173,7 +174,7 @@ async def login(request: UserLoginRequest):
         raise
     except Exception as e:
         print(f"Login error: {e}")
-        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 
 # ==================== PROTECTED ENDPOINTS ====================
@@ -197,9 +198,9 @@ async def get_profile(user_id: str = Depends(get_current_user)):
             pid=str(user_data["pid"]),
             username=user_data["username"],
             name=user_data["name"],
-            email=user_data.get("email"),
-            phone=user_data.get("phone"),
-            dob=user_data.get("dob"),
+            email=user_data.get("email") or "Not provided",
+            phone=user_data.get("phone") or "Not provided",
+            dob=user_data.get("dob") or "Not provided",
             created_at=user_data["created_at"],
         )
 
@@ -207,7 +208,7 @@ async def get_profile(user_id: str = Depends(get_current_user)):
         raise
     except Exception as e:
         print(f"Profile fetch error: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to fetch profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -228,7 +229,7 @@ async def chat_endpoint(request: ChatRequest, user_id: str = Depends(get_current
             logs=[{"tool": "mock_tool", "status": "skipped", "args": {}}],
         )
 
-    result = process_interaction(request.message, request.conversation_history)
+    result = process_interaction(request.message, request.conversation_history, user_id)
 
     return ChatResponse(
         response=result["response"],
@@ -349,7 +350,7 @@ async def upload_prescription(
         raise
     except Exception as e:
         print(f"Prescription upload error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error. Please try again later.")
 
 
 if __name__ == "__main__":

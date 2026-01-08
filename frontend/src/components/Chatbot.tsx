@@ -141,9 +141,16 @@ const Chatbot: React.FC<ChatbotProps> = ({ authToken, userId, userName }) => {
         setChatState(ChatState.CONFIRMING_BOOKING);
 
         const { dateStr, timeStr } = formatDateTime(slot.datetime);
+        // Handle null/undefined doctor name
+        const doctorDisplay = slot.doctor_name ? slot.doctor_name : "General Physician";
+
+        // Ensure date/time are valid strings
+        const dateDisplay = dateStr === "Invalid Date" ? "requested date" : dateStr;
+        const timeDisplay = timeStr === "Invalid Date" ? "" : ` at ${timeStr}`;
+
         addMessage(
             'bot',
-            `You've selected an appointment with ${slot.doctor_name} on ${dateStr} at ${timeStr}. Would you like to confirm this booking?`,
+            `You've selected an appointment with ${doctorDisplay} on ${dateDisplay}${timeDisplay}. Would you like to confirm this booking?`,
             { showConfirmation: true }
         );
     };
@@ -173,18 +180,31 @@ const Chatbot: React.FC<ChatbotProps> = ({ authToken, userId, userName }) => {
                 );
             } else {
                 setChatState(ChatState.IDLE);
+                const errorMsg = typeof response.error === 'object' ? JSON.stringify(response.error) : (response.error || 'Unknown error');
                 addMessage(
                     'bot',
-                    `❌ Booking failed: ${response.error || 'Unknown error'}. Please try again or contact support.`,
-                    { bookingError: response.error }
+                    `❌ Booking failed: ${errorMsg}. Please try again or contact support.`,
+                    { bookingError: errorMsg }
                 );
             }
         } catch (error: any) {
             setChatState(ChatState.IDLE);
+            let errorMessage = error.message;
+            // Attempt to parse if it's a stringified JSON (from agentService) or object
+            try {
+                if (typeof errorMessage === 'object') {
+                    errorMessage = JSON.stringify(errorMessage);
+                } else if (errorMessage.startsWith('[') || errorMessage.startsWith('{')) {
+                    // It might be the result of a previous stringify or raw response
+                }
+            } catch (e) {
+                // ignore
+            }
+
             addMessage(
                 'bot',
-                `❌ Booking failed: ${error.message}. Please try again.`,
-                { bookingError: error.message }
+                `❌ Booking failed: ${errorMessage}. Please try again.`,
+                { bookingError: errorMessage }
             );
         }
     };
@@ -196,18 +216,28 @@ const Chatbot: React.FC<ChatbotProps> = ({ authToken, userId, userName }) => {
     };
 
     const formatDateTime = (isoString: string) => {
-        const date = new Date(isoString);
-        const dateStr = date.toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-        });
-        const timeStr = date.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true,
-        });
-        return { dateStr, timeStr };
+        if (!isoString) return { dateStr: "Unknown Date", timeStr: "" };
+
+        try {
+            const date = new Date(isoString);
+            if (isNaN(date.getTime())) {
+                return { dateStr: "Invalid Date", timeStr: "" };
+            }
+
+            const dateStr = date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+            });
+            const timeStr = date.toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+            });
+            return { dateStr, timeStr };
+        } catch (e) {
+            return { dateStr: "Invalid Date", timeStr: "" };
+        }
     };
 
     return (
@@ -232,8 +262,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ authToken, userId, userName }) => {
                     >
                         <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user'
-                                    ? 'bg-slate-200 text-slate-600'
-                                    : 'bg-blue-100 text-blue-600'
+                                ? 'bg-slate-200 text-slate-600'
+                                : 'bg-blue-100 text-blue-600'
                                 }`}
                         >
                             {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -242,8 +272,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ authToken, userId, userName }) => {
                         <div className={`max-w-[75%] ${msg.role === 'user' ? 'items-end' : 'items-start'} flex flex-col gap-2`}>
                             <div
                                 className={`p-3 rounded-2xl text-sm leading-relaxed ${msg.role === 'user'
-                                        ? 'bg-slate-100 text-slate-800 rounded-tr-none'
-                                        : 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-100'
+                                    ? 'bg-slate-100 text-slate-800 rounded-tr-none'
+                                    : 'bg-blue-50 text-slate-800 rounded-tl-none border border-blue-100'
                                     }`}
                             >
                                 {msg.content}
