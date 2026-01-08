@@ -9,17 +9,18 @@ import os
 
 
 # External notification API configuration
-NOTIFICATION_API_BASE = os.getenv("NOTIFICATION_API_URL", "https://api.example.com")
+NOTIFICATION_API_BASE = os.getenv("NOTIFICATION_API_URL", "http://localhost:5000")
 
 
 async def send_notification(contact: str, message: str) -> Dict:
     """
-    Send notification via external API
+    Send notification via external WhatsApp bridge API
 
-    API Endpoint: POST /contact/{contact}/message/{message}
+    API Endpoint: POST /send
+    Body: {"contact": "...", "message": "..."}
 
     Args:
-        contact: Contact identifier (phone number, email, etc.)
+        contact: Contact identifier (phone number)
         message: Message to send
 
     Returns:
@@ -27,25 +28,31 @@ async def send_notification(contact: str, message: str) -> Dict:
     """
     try:
         # Construct API endpoint
-        endpoint = f"{NOTIFICATION_API_BASE}/contact/{contact}/message/{message}"
+        endpoint = f"{NOTIFICATION_API_BASE}/send"
+        
+        # Prepare payload
+        payload = {
+            "contact": contact,
+            "message": message
+        }
 
         # Make POST request
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(endpoint)
+            response = await client.post(endpoint, json=payload)
 
             if response.status_code == 200:
                 return {
                     "success": True,
                     "status": "sent",
-                    "message": "Notification sent successfully",
+                    "message": "Notification sent successfully via WhatsApp",
                     "contact": contact,
-                    "api_response": response.json() if response.text else {}
+                    "api_response": response.json()
                 }
             else:
                 return {
                     "success": False,
                     "status": "failed",
-                    "error": f"API returned status {response.status_code}",
+                    "error": f"API returned status {response.status_code}: {response.text}",
                     "contact": contact
                 }
 

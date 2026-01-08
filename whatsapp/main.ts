@@ -5,6 +5,9 @@ import qrcode from "qrcode-terminal"
 import { MessageEvent } from "./message_event";
 import express from "express";
 
+const phoneNumber = process.env.PHONE_NUMBER_SERIALIZED;
+if (phoneNumber?.length != 10) process.exit(1);
+
 export const wwclient: Client = new Client({
     authStrategy: new LocalAuth({
         dataPath: "whatsapp_cache"
@@ -35,6 +38,7 @@ wwclient.on("ready", async () => {
             await wwclient.sendMessage("91" + phoneNumber + "@c.us", "WhatsApp API Bridge Started");
         } catch (e) {
             console.error("Failed to send startup message:", e);
+            process.exit(1);
         }
     }
 });
