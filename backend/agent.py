@@ -30,11 +30,13 @@ The user context (Patient ID) is usually "P001" (Alice Smith) for this demo unle
 If you need to book, always check availability first.
 """
 
+
 def get_client():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY environment variable not set.")
     return genai.Client(api_key=api_key)
+
 
 def process_interaction(user_input: str, conversation_history: list):
     """
@@ -42,70 +44,64 @@ def process_interaction(user_input: str, conversation_history: list):
     """
     try:
         client = get_client()
-        
+
         # Prepare tools list (list of callables)
         tool_functions = list(TOOLS_MAP.values())
-        
+
         # Configure the chat
         # We start a new chat session for each request in this stateless REST API design,
         # but in a real app you'd persist the `chat` object or history.
         # To support function calling, we pass 'tools' in the config.
-        
+
         chat = client.chats.create(
-            model='gemini-3-flash-preview',
+            model="gemini-3-flash-preview",
             config=types.GenerateContentConfig(
                 tools=tool_functions,
                 system_instruction=SYSTEM_PROMPT,
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(
-                    disable=False,
-                    maximum_remote_calls=5 
-                )
-            )
+                    disable=False, maximum_remote_calls=5
+                ),
+            ),
         )
-        
+
         # Send message
         # The SDK handles the multi-turn tool execution loop automatically (if configured).
         response = chat.send_message(user_input)
-        
+
         # Extract logs
-        # With the new SDK, inspecting intermediate tool calls might require 
+        # With the new SDK, inspecting intermediate tool calls might require
         # checking the chat history or response parts.
         # The history in `chat` should contain the turns.
-        
+
         # Extract logs
         tool_logs = []
         try:
             # Inspection of history for tool calls
             # Use getattr to be safe across SDK versions/structures
-            history_list = getattr(chat, 'history', [])
+            history_list = getattr(chat, "history", [])
             for content in history_list:
-                parts = getattr(content, 'parts', [])
+                parts = getattr(content, "parts", [])
                 for part in parts:
-                    fn_call = getattr(part, 'function_call', None)
+                    fn_call = getattr(part, "function_call", None)
                     if fn_call:
                         # Convert args to dict if possible
                         args = fn_call.args
-                        if hasattr(args, 'items'):
-                             args = dict(args.items())
-                        
-                        tool_logs.append({
-                            "tool": fn_call.name,
-                            "args": args,
-                            "status": "called"
-                        })
+                        if hasattr(args, "items"):
+                            args = dict(args.items())
+
+                        tool_logs.append(
+                            {"tool": fn_call.name, "args": args, "status": "called"}
+                        )
         except Exception as log_err:
             print(f"Warning: Could not extract tool logs: {log_err}")
-        
+
         # The response text
         final_text = response.text
-        
-        return {
-            "response": final_text,
-            "logs": tool_logs
-        }
+
+        return {"response": final_text, "logs": tool_logs}
 
     except Exception as e:
         return {
             "response": f"System Error (Agent): {str(e)}",
-            "logs": [{"error": str(e)}]
+            "logs": [{"error": str(e)}],
         }
