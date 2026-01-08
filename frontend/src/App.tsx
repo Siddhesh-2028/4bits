@@ -1,7 +1,8 @@
 import axios from "axios";
-import { Activity, HeartPulse, LogOut, ShieldCheck, FileUp } from "lucide-react";
+import { Activity, HeartPulse, LogOut, ShieldCheck, FileUp, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import Auth from "./components/Auth";
+import Chatbot from "./components/Chatbot";
 import PrescriptionUpload from "./components/PrescriptionUpload";
 import ToolLog, { ToolLogEntry } from "./components/ToolLog";
 import Transcript from "./components/Transcript";
@@ -23,7 +24,7 @@ function App() {
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
 	const [userData, setUserData] = useState<UserData | null>(null);
 	const [authToken, setAuthToken] = useState<string | null>(null);
-	const [activeTab, setActiveTab] = useState<'voice' | 'prescription'>('voice');
+	const [activeTab, setActiveTab] = useState<'voice' | 'chatbot' | 'prescription'>('chatbot');
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [logs, setLogs] = useState<ToolLogEntry[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
@@ -58,7 +59,7 @@ function App() {
 		setIsAuthenticated(false);
 		setMessages([]);
 		setLogs([]);
-		setActiveTab('voice');
+		setActiveTab('chatbot');
 	};
 
 	// Simple TTS
@@ -168,18 +169,28 @@ function App() {
 					<button
 						onClick={() => setActiveTab('voice')}
 						className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'voice'
-								? 'bg-blue-600 text-white shadow-md'
-								: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+							? 'bg-blue-600 text-white shadow-md'
+							: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
 							}`}
 					>
 						<Activity size={20} />
 						Voice Assistant
 					</button>
 					<button
+						onClick={() => setActiveTab('chatbot')}
+						className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'chatbot'
+							? 'bg-blue-600 text-white shadow-md'
+							: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+							}`}
+					>
+						<MessageSquare size={20} />
+						Smart Scheduling
+					</button>
+					<button
 						onClick={() => setActiveTab('prescription')}
 						className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === 'prescription'
-								? 'bg-blue-600 text-white shadow-md'
-								: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+							? 'bg-blue-600 text-white shadow-md'
+							: 'bg-slate-100 text-slate-600 hover:bg-slate-200'
 							}`}
 					>
 						<FileUp size={20} />
@@ -236,6 +247,15 @@ function App() {
 								emergencies, call 911.
 							</div>
 						</div>
+					</div>
+				) : activeTab === 'chatbot' ? (
+					/* Chatbot Tab */
+					<div className="max-w-5xl mx-auto">
+						<Chatbot
+							authToken={authToken!}
+							userId={userData!.user_id}
+							userName={userData!.name}
+						/>
 					</div>
 				) : (
 					/* Prescription Upload Tab */

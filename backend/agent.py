@@ -1,7 +1,7 @@
 import os
 
 from google import genai
-from google.genai import types
+from google.generativeai import types
 from tools import TOOLS_MAP
 
 # VITA-Care Agent System Prompt
@@ -50,7 +50,7 @@ def process_interaction(user_input: str, conversation_history: list):
         # To support function calling, we pass 'tools' in the config.
 
         chat = client.chats.create(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             config=types.GenerateContentConfig(
                 tools=tool_functions,
                 system_instruction=SYSTEM_PROMPT,

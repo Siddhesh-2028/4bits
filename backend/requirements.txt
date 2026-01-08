@@ -3,6 +3,7 @@ uvicorn
 pydantic
 python-dotenv
 google-generativeai
+google-genai
 supabase
 python-multipart
 Pillow
@@ -11,3 +12,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 slowapi
 psycopg2-binary
+httpx

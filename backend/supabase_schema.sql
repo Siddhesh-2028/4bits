@@ -136,10 +136,10 @@ CREATE TRIGGER update_patients_updated_at
 -- VERIFICATION
 -- ================================================
 -- Check that all tables were created
-SELECT 
+SELECT
     tablename,
     schemaname
-FROM pg_tables 
-WHERE schemaname = 'public' 
+FROM pg_tables
+WHERE schemaname = 'public'
     AND tablename IN ('patients', 'uploads', 'doctors', 'drugs', 'drug_slots', 'schedule')
 ORDER BY tablename;
