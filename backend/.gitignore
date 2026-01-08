@@ -1,4 +1,4 @@
-# Environment variables 
+# Environment variables
 .env
 .env.local
 .env.production
@@ -13,7 +13,7 @@ venv/
 env/
 ENV/
 
-# Data files 
+# Data files
 data/
 *.pdf
 *.txt

@@ -1,12 +1,11 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import uvicorn
 import os
-from dotenv import load_dotenv
 
-from models import ChatRequest, ChatResponse
+import uvicorn
 from agent import process_interaction
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from models import ChatRequest, ChatResponse
 
 load_dotenv()
 

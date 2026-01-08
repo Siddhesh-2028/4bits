@@ -1,7 +1,8 @@
 import datetime
-from typing import List, Optional, Dict, Any
 import uuid
-from models import Patient, Appointment, InteractionLog
+from typing import Optional
+
+from models import Appointment, InteractionLog, Patient
 
 # --- Mock Data ---
 PATIENTS_DB = {

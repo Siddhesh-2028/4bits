@@ -1,12 +1,8 @@
 import os
+
 from google import genai
 from google.genai import types
 from tools import TOOLS_MAP
-import json
-
-# Configure Gemini Client
-# NOTE: In a real environment, use os.environ.get("GEMINI_API_KEY")
-# key is passed to Client constructor or picked up from environment if standard variable names are used.
 
 # VITA-Care Agent System Prompt
 SYSTEM_PROMPT = """
