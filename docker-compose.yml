@@ -3,6 +3,7 @@ version: '3.8'
 services:
   backend:
     build: ./backend
+    image: dharshan2208/4bits-backend:latest
     ports:
       - "8000:8000"
     env_file:
@@ -11,6 +12,7 @@ services:
 
   frontend:
     build: ./frontend
+    image: dharshan2208/4bits-frontend:latest
     ports:
       - "5173:80"
     restart: always
@@ -19,6 +21,7 @@ services:
 
   whatsapp:
     build: ./whatsapp
+    image: dharshan2208/4bits-whatsapp:latest
     ports:
       - "3001:3001"
       - "5000:5000"
